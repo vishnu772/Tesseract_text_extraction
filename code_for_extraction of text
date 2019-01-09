@@ -1,0 +1,76 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jan  9 10:15:14 2019
+
+@author: kvish
+"""
+Here we extract text from invoice based on pixel locations of the diffrent components like address, name, invoice number
+If is spcific to a document as the pixel locations chnages for each documents we need to have prior knowledge about their component locations
+If the is parsale with key words like total and tax like components in such cases we can use tesseract hocr format to parse and get the outputs
+The code is simple and self explanatory
+Total Code for extraction of all components
+The location of pixel values can be located using tesseract output of hocr or using open cv2.once we know the pixel valules we crop those image parts
+and send them to tesseract for text extraction.
+"""
+
+
+"""
+ Here we import necesseary packages and setting the configurations
+"""
+
+import os
+import cv2
+import pandas as pd
+import pytesseract
+from bs4 import BeautifulSoup  
+pytesseract.pytesseract.tesseract_cmd = 'C:/Program Files (x86)/Tesseract-OCR/tesseract.exe'
+tessdata_dir_config = '-c preserve_interword_spaces=1 --tessdata-dir "C:\\Program Files (x86)\\Tesseract-OCR\\tessdata"'
+# give the path to folder of images and the code will extarct all the images text values and save them in a list
+image_file_path=r"C:\Users\kvish\Desktop\test1"
+
+#function is with input the location of images ans it will return the extracted components in list of lists
+def image_to_text(location):
+     ll=[]
+     for file in os.listdir(location):
+        path=location+"\\"+file
+        image1=cv2.imread(path)
+        rgb=cv2.cvtColor(image1,cv2.COLOR_BGR2RGB)
+        name=rgb[75:200,75:700,:]
+        address=rgb[250:600,1400:2000,:]
+        number=rgb[530:600,438:900,:]
+        date=rgb[600:650,445:900,:]
+        f_name=pytesseract.image_to_string(name,config=tessdata_dir_config,lang='fra')
+        f_address=pytesseract.image_to_string(address,config=tessdata_dir_config,lang='fra')
+        f_number=pytesseract.image_to_string(number,config=tessdata_dir_config,lang='fra')
+        f_date=pytesseract.image_to_string(date,config=tessdata_dir_config,lang='fra')
+    
+        hocr_output=(pytesseract.image_to_pdf_or_hocr(rgb,config=tessdata_dir_config,lang='fra',extension='hocr'))
+        xml_out = BeautifulSoup(hocr_output, 'lxml')
+        sous_total=0
+        total=0
+        for i in xml_out.find_all("span"):
+            for j in i.find_all("span"):
+                if j.text=="Sous-total":
+                    s_tot,deci,eur1=i.find_all("span")[0:3]
+                #amount=deci.text.replace(',','.')
+                 #amount=float(amount)
+                    sous_total=deci.text
+                if j.text=="Total":
+                    total_f,amount_f,eur2=i.find_all("span")[0:3]  
+                    total=amount_f.text
+           # final_a=amount_f.text.replace(',','.')
+            #final_a=float(final_a)
+        ms=[f_name,f_address,f_number,f_date,sous_total,total]
+        ll.append(ms)
+     return(ll)    
+        
+     
+    
+           
+#Here we call the function and store it as dataframes
+     
+
+my_list=image_to_text(r"C:\Users\kvish\Desktop\test1")
+data_f=pd.DataFrame(my_list)
+
+    
